@@ -29,3 +29,16 @@ logs/
 
 # Docker
 .dockerignore
+
+# Environment variables
+.env
+.env.local
+.env.production
+
+# Build
+dist
+dist-ssr
+*.local
+
+# Node
+node_modules

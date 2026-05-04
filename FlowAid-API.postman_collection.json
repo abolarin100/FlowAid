@@ -1,0 +1,528 @@
+{
+  "info": {
+    "name": "FlowAid API — Complete",
+    "_postman_id": "flowaid-api-complete",
+    "description": "FlowAid Humanitarian Cash Transfer Platform — all endpoints across Recipients, Campaigns, Donors, Payments, and Dashboard. \n\nWorkflow order:\n1. Create a Donor\n2. Create a Campaign (starts as DRAFT)\n3. Activate the Campaign\n4. Enroll a Recipient\n5. Activate the Recipient\n6. Initiate a Payment or run Bulk Disbursement\n7. Check Dashboard Stats",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl",     "value": "http://localhost:8080/api/v1", "type": "string" },
+    { "key": "campaignId",  "value": "", "type": "string" },
+    { "key": "recipientId", "value": "", "type": "string" },
+    { "key": "donorId",     "value": "", "type": "string" },
+    { "key": "paymentId",   "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "1 — Recipients",
+      "item": [
+        {
+          "name": "Enroll Recipient",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  pm.collectionVariables.set('recipientId', body.id);",
+                  "  console.log('Saved recipientId:', body.id);",
+                  "  pm.test('Status is PENDING_VERIFICATION', () => {",
+                  "    pm.expect(body.enrollmentStatus).to.eql('PENDING_VERIFICATION');",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Amara\",\n  \"lastName\": \"Diallo\",\n  \"phoneNumber\": \"+2348012345678\",\n  \"countryCode\": \"NG\",\n  \"region\": \"Lagos\",\n  \"preferredPaymentMethod\": \"MPESA\",\n  \"vulnerabilityScore\": 75\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/recipients" },
+            "description": "Enroll a new recipient. Status defaults to PENDING_VERIFICATION. Must be set to ACTIVE before receiving payments."
+          }
+        },
+        {
+          "name": "List All Recipients",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/recipients?page=0&size=25",
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "25" }
+              ]
+            },
+            "description": "Paginated list of all enrolled recipients, newest first."
+          }
+        },
+        {
+          "name": "Get Recipient by ID",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/recipients/{{recipientId}}" },
+            "description": "Fetch a single recipient by UUID."
+          }
+        },
+        {
+          "name": "Activate Recipient (PENDING → ACTIVE)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  pm.test('Status is now ACTIVE', () => {",
+                  "    pm.expect(body.enrollmentStatus).to.eql('ACTIVE');",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"ACTIVE\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/recipients/{{recipientId}}/status" },
+            "description": "Move recipient from PENDING_VERIFICATION to ACTIVE. Required before any payment can be made to them.\n\nValid statuses: PENDING_VERIFICATION, VERIFIED, ACTIVE, SUSPENDED, GRADUATED"
+          }
+        },
+        {
+          "name": "Suspend Recipient",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"SUSPENDED\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/recipients/{{recipientId}}/status" },
+            "description": "Suspend a recipient. Payments to a SUSPENDED recipient will be rejected with 422."
+          }
+        },
+        {
+          "name": "Enroll Recipient — Validation Error (400)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Test\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/recipients" },
+            "description": "Missing required fields — should return 400 with fieldErrors listing lastName, phoneNumber, countryCode."
+          }
+        }
+      ]
+    },
+    {
+      "name": "2 — Campaigns",
+      "item": [
+        {
+          "name": "Create Campaign",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  pm.collectionVariables.set('campaignId', body.id);",
+                  "  console.log('Saved campaignId:', body.id);",
+                  "  pm.test('Status is DRAFT', () => {",
+                  "    pm.expect(body.status).to.eql('DRAFT');",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Nigeria Flood Relief 2025\",\n  \"description\": \"Emergency cash transfers for flood-affected households in Lagos and Kano\",\n  \"type\": \"EMERGENCY_RELIEF\",\n  \"targetCountry\": \"NG\",\n  \"targetRegion\": \"Lagos\",\n  \"budgetUsd\": 50000.00,\n  \"transferAmountUsd\": 50.00,\n  \"startDate\": \"2025-06-01\",\n  \"endDate\": \"2025-09-30\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/campaigns" },
+            "description": "Create a new campaign. Starts as DRAFT — must be activated before payments can be made against it.\n\nCampaign types: EMERGENCY_RELIEF, LONG_TERM_TRANSFER, CRISIS_RESPONSE, PILOT"
+          }
+        },
+        {
+          "name": "List All Campaigns",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/campaigns" },
+            "description": "Returns all campaigns. No pagination on this endpoint — use filters client-side."
+          }
+        },
+        {
+          "name": "Get Campaign by ID",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/campaigns/{{campaignId}}" },
+            "description": "Fetch a single campaign including its current disbursed amount."
+          }
+        },
+        {
+          "name": "Activate Campaign (DRAFT → ACTIVE)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  pm.test('Status is now ACTIVE', () => {",
+                  "    pm.expect(body.status).to.eql('ACTIVE');",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"ACTIVE\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/campaigns/{{campaignId}}/status" },
+            "description": "Activate a campaign so payments can be made against it.\n\nValid statuses: DRAFT, ACTIVE, PAUSED, COMPLETED, ARCHIVED"
+          }
+        },
+        {
+          "name": "Pause Campaign",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"PAUSED\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/campaigns/{{campaignId}}/status" },
+            "description": "Pause a campaign. Payments to a PAUSED campaign will be rejected with 422."
+          }
+        },
+        {
+          "name": "Complete Campaign",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"COMPLETED\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/campaigns/{{campaignId}}/status" },
+            "description": "Mark campaign as completed."
+          }
+        },
+        {
+          "name": "Create Campaign — Validation Error (400)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Test\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/campaigns" },
+            "description": "Missing required fields — should return 400 with fieldErrors for type, budgetUsd, transferAmountUsd."
+          }
+        }
+      ]
+    },
+    {
+      "name": "3 — Donors",
+      "item": [
+        {
+          "name": "Register Donor",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  pm.collectionVariables.set('donorId', body.id);",
+                  "  console.log('Saved donorId:', body.id);",
+                  "  pm.test('Tier defaults to STANDARD', () => {",
+                  "    pm.expect(body.donorTier).to.eql('STANDARD');",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Chidi\",\n  \"lastName\": \"Okeke\",\n  \"email\": \"chidi.okeke@example.com\",\n  \"organizationName\": \"Lagos Relief Foundation\",\n  \"isRecurring\": true\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/donors" },
+            "description": "Register a new donor. Tier defaults to STANDARD and can be upgraded manually."
+          }
+        },
+        {
+          "name": "List All Donors",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/donors?page=0&size=25",
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "25" }
+              ]
+            },
+            "description": "Paginated list of all registered donors, newest first."
+          }
+        },
+        {
+          "name": "Get Donor by ID",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/donors/{{donorId}}" },
+            "description": "Fetch a single donor by UUID."
+          }
+        },
+        {
+          "name": "Register Donor — Duplicate Email (400)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Chidi\",\n  \"lastName\": \"Okeke\",\n  \"email\": \"chidi.okeke@example.com\",\n  \"isRecurring\": false\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/donors" },
+            "description": "Run after 'Register Donor' — same email should return 400 or 500 (duplicate)."
+          }
+        },
+        {
+          "name": "Register Donor — Invalid Email (400)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Test\",\n  \"lastName\": \"User\",\n  \"email\": \"not-an-email\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/donors" },
+            "description": "Should return 400 with fieldErrors.email = 'Must be a valid email address'."
+          }
+        }
+      ]
+    },
+    {
+      "name": "4 — Payments",
+      "item": [
+        {
+          "name": "Initiate Single Payment",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  pm.collectionVariables.set('paymentId', body.id);",
+                  "  console.log('Saved paymentId:', body.id);",
+                  "  pm.test('Status is PENDING', () => {",
+                  "    pm.expect(body.status).to.eql('PENDING');",
+                  "  });",
+                  "  pm.test('Has recipientName', () => {",
+                  "    pm.expect(body.recipientName).to.be.a('string');",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"recipientId\": \"{{recipientId}}\",\n  \"campaignId\": \"{{campaignId}}\",\n  \"amount\": 50.00,\n  \"currency\": \"USD\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/payments" },
+            "description": "Initiates an async payment.\n\nPre-conditions:\n- Recipient must be ACTIVE\n- Campaign must be ACTIVE\n- Amount must not exceed remaining campaign budget\n\nReturns PENDING immediately. Payment processes in background (mock gateway ~200-500ms). Check payments list to see final status."
+          }
+        },
+        {
+          "name": "Bulk Disbursement",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"campaignId\": \"{{campaignId}}\",\n  \"recipientIds\": [\n    \"{{recipientId}}\"\n  ]\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/payments/bulk" },
+            "description": "Disburse the campaign's configured transferAmountUsd to multiple recipients at once. Uses campaign's transferAmountUsd — ignores any amount field. Skips ineligible recipients with a warning log rather than failing the whole batch."
+          }
+        },
+        {
+          "name": "Get Payments by Campaign",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/payments/campaign/{{campaignId}}?page=0&size=25",
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "25" }
+              ]
+            },
+            "description": "All payments for a campaign, newest first. Use this to track payment statuses after bulk disbursement."
+          }
+        },
+        {
+          "name": "Get Payments by Recipient",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/payments/recipient/{{recipientId}}?page=0&size=25",
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "25" }
+              ]
+            },
+            "description": "Full payment history for a specific recipient."
+          }
+        },
+        {
+          "name": "Payment — Inactive Recipient (422)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"recipientId\": \"{{recipientId}}\",\n  \"campaignId\": \"{{campaignId}}\",\n  \"amount\": 50.00,\n  \"currency\": \"USD\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/payments" },
+            "description": "Run this AFTER suspending the recipient. Should return 422 Unprocessable Entity: 'Recipient is not in ACTIVE status'."
+          }
+        },
+        {
+          "name": "Payment — Non-Existent Campaign (404)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"recipientId\": \"{{recipientId}}\",\n  \"campaignId\": \"00000000-0000-0000-0000-000000000099\",\n  \"amount\": 50.00,\n  \"currency\": \"USD\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/payments" },
+            "description": "Should return 404 ProblemDetail: 'Campaign not found: 00000000-...'."
+          }
+        },
+        {
+          "name": "Payment — Missing Fields (400)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 50.00\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/payments" },
+            "description": "Should return 400 with fieldErrors for recipientId, campaignId, currency."
+          }
+        },
+        {
+          "name": "Payment — Negative Amount (400)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"recipientId\": \"{{recipientId}}\",\n  \"campaignId\": \"{{campaignId}}\",\n  \"amount\": -10.00,\n  \"currency\": \"USD\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/payments" },
+            "description": "Should return 400: 'Amount must be positive'."
+          }
+        }
+      ]
+    },
+    {
+      "name": "5 — Dashboard",
+      "item": [
+        {
+          "name": "Get Dashboard Stats",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  pm.test('Has all stat fields', () => {",
+                  "    pm.expect(body).to.have.all.keys(",
+                  "      'activeRecipients', 'activeCampaigns', 'totalDisbursedUsd',",
+                  "      'completedPayments', 'paymentSuccessRate', 'totalDonors'",
+                  "    );",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/dashboard/stats" },
+            "description": "Platform-wide aggregated stats. Cached for 30 seconds. Returns:\n- activeRecipients: count of ACTIVE recipients\n- activeCampaigns: count of ACTIVE campaigns\n- totalDisbursedUsd: sum of all COMPLETED payment amounts\n- completedPayments: count of COMPLETED payments\n- paymentSuccessRate: % of non-pending payments that succeeded\n- totalDonors: total registered donors"
+          }
+        }
+      ]
+    },
+    {
+      "name": "6 — Utilities",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "http://localhost:8080/actuator/health" },
+            "description": "Spring Boot Actuator health endpoint. Should return {status: 'UP'}."
+          }
+        },
+        {
+          "name": "OpenAPI JSON Spec",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "http://localhost:8080/api-docs" },
+            "description": "Full OpenAPI 3.0 spec as JSON. Import into Postman or Swagger UI."
+          }
+        },
+        {
+          "name": "Swagger UI (open in browser)",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "http://localhost:8080/swagger-ui.html" },
+            "description": "Interactive API docs. Open this URL in your browser."
+          }
+        },
+        {
+          "name": "H2 Console (open in browser)",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "http://localhost:8080/h2-console" },
+            "description": "H2 in-memory database browser.\nJDBC URL: jdbc:h2:mem:flowaid\nUser: sa\nPassword: (leave empty)\n\nUse this to inspect tables, run SQL queries, verify data."
+          }
+        }
+      ]
+    }
+  ]
+}

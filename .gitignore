@@ -3,7 +3,8 @@ target/
 *.class
 *.jar
 *.war
-.mvn/
+.mvn/repository/
+!.mvn/wrapper/
 !.mvn/wrapper/maven-wrapper.properties
 
 # Node

@@ -1,6 +1,8 @@
 # ── Stage 1: Build ─────────────────────────────────────────────────────────────
 FROM node:20-alpine AS builder
 WORKDIR /app
+RUN apk add --no-cache maven
+RUN mvn -q package -DskipTests && ...
 
 COPY package*.json ./
 RUN npm ci

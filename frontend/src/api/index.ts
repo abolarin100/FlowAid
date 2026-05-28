@@ -15,14 +15,6 @@ import type {
 const BASE_URL = import.meta.env.VITE_API_URL;
 // ?? "http://localhost:8080/api/v1";
 
-// In your App.tsx or a top-level component
-useEffect(() => {
-  // Ping on load to wake the server if it's sleeping
-  fetch(`${import.meta.env.VITE_API_URL}/api/v1/actuator/health`).catch(
-    () => {},
-  ); // silent — we don't care about the response
-}, []);
-
 export const apiClient = axios.create({
   baseURL: BASE_URL,
   headers: { "Content-Type": "application/json" },

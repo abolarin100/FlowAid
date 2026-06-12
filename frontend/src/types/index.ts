@@ -1,19 +1,38 @@
 // ── Enums ─────────────────────────────────────────────────────────────────────
 
-export type PaymentStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'REVERSED';
+export type PaymentStatus =
+  | "PENDING"
+  | "PROCESSING"
+  | "COMPLETED"
+  | "FAILED"
+  | "REVERSED";
 
 export type EnrollmentStatus =
-  | 'PENDING_VERIFICATION'
-  | 'VERIFIED'
-  | 'ACTIVE'
-  | 'SUSPENDED'
-  | 'GRADUATED';
+  | "PENDING_VERIFICATION"
+  | "VERIFIED"
+  | "ACTIVE"
+  | "SUSPENDED"
+  | "GRADUATED";
 
-export type CampaignType = 'EMERGENCY_RELIEF' | 'LONG_TERM_TRANSFER' | 'CRISIS_RESPONSE' | 'PILOT';
+export type CampaignType =
+  | "EMERGENCY_RELIEF"
+  | "LONG_TERM_TRANSFER"
+  | "CRISIS_RESPONSE"
+  | "PILOT";
 
-export type CampaignStatus = 'DRAFT' | 'ACTIVE' | 'PAUSED' | 'COMPLETED' | 'ARCHIVED';
+export type CampaignStatus =
+  | "DRAFT"
+  | "ACTIVE"
+  | "PAUSED"
+  | "COMPLETED"
+  | "ARCHIVED";
 
-export type DonorTier = 'STANDARD' | 'SILVER' | 'GOLD' | 'PLATINUM' | 'INSTITUTIONAL';
+export type DonorTier =
+  | "STANDARD"
+  | "SILVER"
+  | "GOLD"
+  | "PLATINUM"
+  | "INSTITUTIONAL";
 
 // ── Domain Models ─────────────────────────────────────────────────────────────
 
@@ -107,8 +126,12 @@ export interface BulkDisbursementRequest {
 }
 
 export interface ApiError {
-  title: string;
-  detail: string;
+  type?: string;
+  title?: string;
   status: number;
+  detail?: string;
+  instance?: string;
   fieldErrors?: Record<string, string>;
+  errorId?: string;
+  timestamp?: string;
 }

@@ -1,17 +1,24 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { dashboardApi, paymentsApi, recipientsApi, campaignsApi, donorsApi } from '../api';
-import type { CreatePaymentRequest, BulkDisbursementRequest } from '../types';
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  dashboardApi,
+  paymentsApi,
+  recipientsApi,
+  campaignsApi,
+  donorsApi,
+} from "../api";
+import type { CreatePaymentRequest, BulkDisbursementRequest } from "../types";
 
 // ── Query Keys ─────────────────────────────────────────────────────────────
 export const queryKeys = {
-  dashboard: ['dashboard', 'stats'] as const,
-  campaigns: ['campaigns'] as const,
-  campaign: (id: string) => ['campaigns', id] as const,
-  campaignPayments: (id: string, page: number) => ['payments', 'campaign', id, page] as const,
-  recipients: (page: number) => ['recipients', page] as const,
-  recipient: (id: string) => ['recipients', id] as const,
-  recipientPayments: (id: string) => ['payments', 'recipient', id] as const,
-  donors: (page: number) => ['donors', page] as const,
+  dashboard: ["dashboard", "stats"] as const,
+  campaigns: ["campaigns"] as const,
+  campaign: (id: string) => ["campaigns", id] as const,
+  campaignPayments: (id: string, page: number) =>
+    ["payments", "campaign", id, page] as const,
+  recipients: (page: number) => ["recipients", page] as const,
+  recipient: (id: string) => ["recipients", id] as const,
+  recipientPayments: (id: string) => ["payments", "recipient", id] as const,
+  donors: (page: number) => ["donors", page] as const,
 };
 
 // ── Dashboard ──────────────────────────────────────────────────────────────
@@ -50,10 +57,10 @@ export function useCampaignPayments(campaignId: string, page = 0) {
 }
 
 // ── Recipients ─────────────────────────────────────────────────────────────
-export function useRecipients(page = 0) {
+export function useRecipients(page = 0, size = 25) {
   return useQuery({
-    queryKey: queryKeys.recipients(page),
-    queryFn: () => recipientsApi.list(page),
+    queryKey: ["recipients", page, size],
+    queryFn: () => recipientsApi.list(page, size),
   });
 }
 
@@ -79,7 +86,9 @@ export function useInitiatePayment() {
   return useMutation({
     mutationFn: (req: CreatePaymentRequest) => paymentsApi.initiate(req),
     onSuccess: (_, vars) => {
-      qc.invalidateQueries({ queryKey: queryKeys.campaignPayments(vars.campaignId, 0) });
+      qc.invalidateQueries({
+        queryKey: queryKeys.campaignPayments(vars.campaignId, 0),
+      });
       qc.invalidateQueries({ queryKey: queryKeys.dashboard });
     },
   });
@@ -88,9 +97,12 @@ export function useInitiatePayment() {
 export function useBulkDisbursement() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (req: BulkDisbursementRequest) => paymentsApi.bulkDisbursement(req),
+    mutationFn: (req: BulkDisbursementRequest) =>
+      paymentsApi.bulkDisbursement(req),
     onSuccess: (_, vars) => {
-      qc.invalidateQueries({ queryKey: queryKeys.campaignPayments(vars.campaignId, 0) });
+      qc.invalidateQueries({
+        queryKey: queryKeys.campaignPayments(vars.campaignId, 0),
+      });
       qc.invalidateQueries({ queryKey: queryKeys.campaign(vars.campaignId) });
       qc.invalidateQueries({ queryKey: queryKeys.dashboard });
     },

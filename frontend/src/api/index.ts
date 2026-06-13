@@ -61,6 +61,10 @@ export const paymentsApi = {
         Page<Payment>
       >(`/payments/recipient/${recipientId}`, { params: { page, size } })
       .then((r) => r.data),
+  getAll: (page = 0, size = 25) =>
+    apiClient
+      .get<Page<Payment>>("/payments", { params: { page, size } })
+      .then((r) => r.data),
 };
 
 export const recipientsApi = {
@@ -72,9 +76,7 @@ export const recipientsApi = {
   getById: (id: string) =>
     apiClient.get<Recipient>(`/recipients/${id}`).then((r) => r.data),
 
-  listEligible: (
-    campaignId: string, // ← moved here, uses Recipient
-  ) =>
+  listEligible: (campaignId: string) =>
     apiClient
       .get<Page<Recipient>>("/recipients/eligible", {
         params: { campaignId, size: 100 },

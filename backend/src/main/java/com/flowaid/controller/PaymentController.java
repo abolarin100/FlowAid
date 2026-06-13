@@ -28,28 +28,25 @@ public class PaymentController {
     @PostMapping
     @Operation(summary = "Initiate a single payment to a recipient")
     public ResponseEntity<PaymentDto.Response> initiatePayment(
-        @Valid @RequestBody PaymentDto.CreateRequest request
-    ) {
+            @Valid @RequestBody PaymentDto.CreateRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
-            .body(paymentService.initiatePayment(request));
+                .body(paymentService.initiatePayment(request));
     }
 
     @PostMapping("/bulk")
     @Operation(summary = "Bulk disbursement to multiple recipients in a campaign")
     public ResponseEntity<List<PaymentDto.Response>> bulkDisbursement(
-        @Valid @RequestBody PaymentDto.BulkDisbursementRequest request
-    ) {
+            @Valid @RequestBody PaymentDto.BulkDisbursementRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
-            .body(paymentService.bulkDisbursement(request));
+                .body(paymentService.bulkDisbursement(request));
     }
 
     @GetMapping("/campaign/{campaignId}")
     @Operation(summary = "Get all payments for a campaign")
     public ResponseEntity<Page<PaymentDto.Response>> getPaymentsByCampaign(
-        @PathVariable UUID campaignId,
-        @RequestParam(defaultValue = "0") int page,
-        @RequestParam(defaultValue = "25") int size
-    ) {
+            @PathVariable UUID campaignId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "25") int size) {
         PageRequest pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
         return ResponseEntity.ok(paymentService.getPaymentsByCampaign(campaignId, pageable));
     }
@@ -57,11 +54,19 @@ public class PaymentController {
     @GetMapping("/recipient/{recipientId}")
     @Operation(summary = "Get payment history for a recipient")
     public ResponseEntity<Page<PaymentDto.Response>> getPaymentsByRecipient(
-        @PathVariable UUID recipientId,
-        @RequestParam(defaultValue = "0") int page,
-        @RequestParam(defaultValue = "25") int size
-    ) {
+            @PathVariable UUID recipientId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "25") int size) {
         PageRequest pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
         return ResponseEntity.ok(paymentService.getPaymentsByRecipient(recipientId, pageable));
+    }
+
+    @GetMapping
+    @Operation(summary = "Get all payments (paginated)")
+    public ResponseEntity<Page<PaymentDto.Response>> getAllPayments(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "25") int size) {
+        PageRequest pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        return ResponseEntity.ok(paymentService.getAllPayments(pageable));
     }
 }

@@ -242,4 +242,9 @@ public class PaymentService {
                 .createdAt(payment.getCreatedAt())
                 .build();
     }
+
+    @Transactional(readOnly = true)
+    public Page<PaymentDto.Response> getAllPayments(Pageable pageable) {
+        return paymentRepository.findAll(pageable).map(this::toResponse);
+    }
 }

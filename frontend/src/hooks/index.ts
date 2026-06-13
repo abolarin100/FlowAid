@@ -54,8 +54,10 @@ export function useCampaign(id: string) {
 export function useCampaignPayments(campaignId: string, page = 0) {
   return useQuery({
     queryKey: queryKeys.campaignPayments(campaignId, page),
-    queryFn: () => paymentsApi.getByCampaign(campaignId, page),
-    enabled: !!campaignId,
+    queryFn: () =>
+      campaignId
+        ? paymentsApi.getByCampaign(campaignId, page)
+        : paymentsApi.getAll(page),
   });
 }
 

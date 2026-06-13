@@ -8,6 +8,7 @@ import com.flowaid.model.Recipient.EnrollmentStatus;
 import com.flowaid.repository.CampaignRepository;
 import com.flowaid.repository.RecipientRepository;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -21,15 +22,16 @@ import java.util.UUID;
 public class RecipientService {
 
     private final RecipientRepository recipientRepository;
-    private final DashboardService dashboardService;
     private final CampaignRepository campaignRepository;
+    private final DashboardService dashboardService;
 
+    @Autowired
     public RecipientService(RecipientRepository recipientRepository,
-            @Lazy DashboardService dashboardService,
-            CampaignRepository campaignRepository) {
+            CampaignRepository campaignRepository,
+            @Lazy DashboardService dashboardService) {
         this.recipientRepository = recipientRepository;
-        this.dashboardService = dashboardService;
         this.campaignRepository = campaignRepository;
+        this.dashboardService = dashboardService;
     }
 
     @Transactional(readOnly = true)
@@ -80,30 +82,6 @@ public class RecipientService {
         return toResponse(saved);
     }
 
-    private RecipientDto.Response toResponse(Recipient r) {
-        return RecipientDto.Response.builder()
-                .id(r.getId())
-                .firstName(r.getFirstName())
-                .lastName(r.getLastName())
-                .phoneNumber(r.getPhoneNumber())
-                .countryCode(r.getCountryCode())
-                .region(r.getRegion())
-                .preferredPaymentMethod(r.getPreferredPaymentMethod())
-                .enrollmentStatus(r.getEnrollmentStatus())
-                .vulnerabilityScore(r.getVulnerabilityScore())
-                .createdAt(r.getCreatedAt())
-                .updatedAt(r.getUpdatedAt())
-                .build();
-    }
-
-    public RecipientService(RecipientRepository recipientRepository,
-            CampaignRepository campaignRepository,
-            @Lazy DashboardService dashboardService) {
-        this.recipientRepository = recipientRepository;
-        this.campaignRepository = campaignRepository;
-        this.dashboardService = dashboardService;
-    }
-
     @Transactional(readOnly = true)
     public Page<RecipientDto.Response> listEligibleForCampaign(UUID campaignId, Pageable pageable) {
         Campaign campaign = campaignRepository.findById(campaignId)
@@ -122,9 +100,24 @@ public class RecipientService {
                     campaignId, campaign.getTargetCountry(), pageable)
                     .map(this::toResponse);
         }
-
         return recipientRepository.findByEnrollmentStatus(
                 Recipient.EnrollmentStatus.ACTIVE, pageable)
                 .map(this::toResponse);
+    }
+
+    private RecipientDto.Response toResponse(Recipient r) {
+        return RecipientDto.Response.builder()
+                .id(r.getId())
+                .firstName(r.getFirstName())
+                .lastName(r.getLastName())
+                .phoneNumber(r.getPhoneNumber())
+                .countryCode(r.getCountryCode())
+                .region(r.getRegion())
+                .preferredPaymentMethod(r.getPreferredPaymentMethod())
+                .enrollmentStatus(r.getEnrollmentStatus())
+                .vulnerabilityScore(r.getVulnerabilityScore())
+                .createdAt(r.getCreatedAt())
+                .updatedAt(r.getUpdatedAt())
+                .build();
     }
 }

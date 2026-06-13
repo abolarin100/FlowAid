@@ -116,34 +116,6 @@ public class PaymentService {
             payment.setStatus(PaymentStatus.FAILED);
             payment.setFailureReason("Unexpected error: " + e.getMessage());
         }
-        // try {
-        // payment.setStatus(PaymentStatus.PROCESSING);
-        // payment.setInitiatedAt(Instant.now());
-        // paymentRepository.save(payment);
-
-        // String externalId = transferGatewayService.initiateTransfer(
-        // payment.getRecipient().getPhoneNumber(),
-        // payment.getAmount(),
-        // payment.getCurrency());
-
-        // payment.setExternalTransferId(externalId);
-        // payment.setStatus(PaymentStatus.COMPLETED);
-        // payment.setCompletedAt(Instant.now());
-        // log.info("Payment {} completed with external id {}", paymentId, externalId);
-
-        // } catch (TransferGatewayService.TransferFailedException e) {
-        // // FIX Bug 3: TransferFailedException is now explicitly caught here
-        // // so it no longer escapes as an unhandled 500
-        // log.error("Transfer gateway rejected payment {}: {}", paymentId,
-        // e.getMessage());
-        // payment.setStatus(PaymentStatus.FAILED);
-        // payment.setFailureReason(e.getMessage());
-        // } catch (Exception e) {
-        // log.error("Unexpected error processing payment {}: {}", paymentId,
-        // e.getMessage());
-        // payment.setStatus(PaymentStatus.FAILED);
-        // payment.setFailureReason("Unexpected error: " + e.getMessage());
-        // }
 
         paymentRepository.save(payment);
         dashboardService.evictCache();
@@ -155,10 +127,19 @@ public class PaymentService {
         Campaign campaign = campaignRepository.findById(request.getCampaignId())
                 .orElseThrow(() -> new ResourceNotFoundException("Campaign", request.getCampaignId()));
 
-        validateCampaignHasBudget(campaign, request.getRecipientIds().size());
+        List<UUID> recipientIds = (request.getRecipientIds() == null || request.getRecipientIds().isEmpty())
+                ? resolveEligibleRecipients(campaign)
+                : request.getRecipientIds();
+
+        if (recipientIds.isEmpty()) {
+            throw new PaymentProcessingException(
+                    "No eligible recipients found for campaign " + campaign.getId());
+        }
+
+        validateCampaignHasBudget(campaign, recipientIds.size());
 
         List<PaymentDto.Response> responses = new ArrayList<>();
-        for (UUID recipientId : request.getRecipientIds()) {
+        for (UUID recipientId : recipientIds) {
             try {
                 PaymentDto.CreateRequest createRequest = PaymentDto.CreateRequest.builder()
                         .recipientId(recipientId)
@@ -175,6 +156,26 @@ public class PaymentService {
         log.info("Bulk disbursement: {} payments initiated for campaign {}", responses.size(), campaign.getId());
         dashboardService.evictCache();
         return responses;
+    }
+
+    private List<UUID> resolveEligibleRecipients(Campaign campaign) {
+        boolean hasCountry = campaign.getTargetCountry() != null && !campaign.getTargetCountry().isBlank();
+        boolean hasRegion = campaign.getTargetRegion() != null && !campaign.getTargetRegion().isBlank();
+
+        List<Recipient> eligible;
+        if (hasCountry && hasRegion) {
+            eligible = recipientRepository.findEligibleForCampaignInRegion(
+                    campaign.getId(), campaign.getTargetCountry(), campaign.getTargetRegion());
+        } else if (hasCountry) {
+            eligible = recipientRepository.findEligibleForCampaign(
+                    campaign.getId(), campaign.getTargetCountry());
+        } else {
+            // No geo-targeting — all active recipients not yet paid
+            eligible = recipientRepository.findAll().stream()
+                    .filter(r -> r.getEnrollmentStatus() == Recipient.EnrollmentStatus.ACTIVE)
+                    .toList();
+        }
+        return eligible.stream().map(Recipient::getId).toList();
     }
 
     @Transactional(readOnly = true)
@@ -195,6 +196,18 @@ public class PaymentService {
         if (campaign.getStatus() != Campaign.CampaignStatus.ACTIVE) {
             throw new PaymentProcessingException(
                     "Campaign " + campaign.getId() + " is not ACTIVE");
+        }
+        if (campaign.getTargetCountry() != null
+                && !campaign.getTargetCountry().equalsIgnoreCase(recipient.getCountryCode())) {
+            throw new PaymentProcessingException(
+                    "Recipient country " + recipient.getCountryCode()
+                            + " does not match campaign target country " + campaign.getTargetCountry());
+        }
+        if (campaign.getTargetRegion() != null
+                && !campaign.getTargetRegion().equalsIgnoreCase(recipient.getRegion())) {
+            throw new PaymentProcessingException(
+                    "Recipient region " + recipient.getRegion()
+                            + " does not match campaign target region " + campaign.getTargetRegion());
         }
         BigDecimal remaining = campaign.getBudgetUsd().subtract(campaign.getDisbursedUsd());
         if (amount.compareTo(remaining) > 0) {

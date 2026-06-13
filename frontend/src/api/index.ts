@@ -72,6 +72,15 @@ export const recipientsApi = {
   getById: (id: string) =>
     apiClient.get<Recipient>(`/recipients/${id}`).then((r) => r.data),
 
+  listEligible: (
+    campaignId: string, // ← moved here, uses Recipient
+  ) =>
+    apiClient
+      .get<Page<Recipient>>("/recipients/eligible", {
+        params: { campaignId, size: 100 },
+      })
+      .then((r) => r.data),
+
   create: (body: {
     firstName: string;
     lastName: string;

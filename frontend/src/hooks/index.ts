@@ -19,6 +19,9 @@ export const queryKeys = {
   recipient: (id: string) => ["recipients", id] as const,
   recipientPayments: (id: string) => ["payments", "recipient", id] as const,
   donors: (page: number) => ["donors", page] as const,
+  eligibleRecipients: (
+    campaignId: string, // ← inside the object
+  ) => ["recipients", "eligible", campaignId] as const,
 };
 
 // ── Dashboard ──────────────────────────────────────────────────────────────
@@ -26,7 +29,7 @@ export function useDashboardStats() {
   return useQuery({
     queryKey: queryKeys.dashboard,
     queryFn: dashboardApi.getStats,
-    staleTime: 30_000, // refresh every 30s
+    staleTime: 30_000,
     refetchInterval: 60_000,
   });
 }
@@ -69,6 +72,14 @@ export function useRecipient(id: string) {
     queryKey: queryKeys.recipient(id),
     queryFn: () => recipientsApi.getById(id),
     enabled: !!id,
+  });
+}
+
+export function useEligibleRecipients(campaignId: string) {
+  return useQuery({
+    queryKey: queryKeys.eligibleRecipients(campaignId),
+    queryFn: () => recipientsApi.list(),
+    enabled: !!campaignId,
   });
 }
 

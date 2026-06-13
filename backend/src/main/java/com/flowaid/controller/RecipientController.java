@@ -28,9 +28,8 @@ public class RecipientController {
     @GetMapping
     @Operation(summary = "List all recipients with pagination")
     public ResponseEntity<Page<RecipientDto.Response>> list(
-        @RequestParam(defaultValue = "0") int page,
-        @RequestParam(defaultValue = "25") int size
-    ) {
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "25") int size) {
         PageRequest pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
         return ResponseEntity.ok(recipientService.listRecipients(pageable));
     }
@@ -46,19 +45,27 @@ public class RecipientController {
     @PostMapping
     @Operation(summary = "Enroll a new recipient")
     public ResponseEntity<RecipientDto.Response> create(
-        @Valid @RequestBody RecipientDto.CreateRequest request
-    ) {
+            @Valid @RequestBody RecipientDto.CreateRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
-            .body(recipientService.create(request));
+                .body(recipientService.create(request));
     }
 
     // PATCH /api/v1/recipients/{id}/status
     @PatchMapping("/{id}/status")
     @Operation(summary = "Update a recipient's enrollment status")
     public ResponseEntity<RecipientDto.Response> updateStatus(
-        @PathVariable UUID id,
-        @Valid @RequestBody RecipientDto.StatusUpdateRequest request
-    ) {
+            @PathVariable UUID id,
+            @Valid @RequestBody RecipientDto.StatusUpdateRequest request) {
         return ResponseEntity.ok(recipientService.updateStatus(id, request.getStatus()));
+    }
+
+    @GetMapping("/eligible")
+    @Operation(summary = "List ACTIVE recipients eligible for a campaign (geo-filtered, not yet paid)")
+    public ResponseEntity<Page<RecipientDto.Response>> listEligible(
+            @RequestParam UUID campaignId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "100") int size) {
+        PageRequest pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        return ResponseEntity.ok(recipientService.listEligibleForCampaign(campaignId, pageable));
     }
 }

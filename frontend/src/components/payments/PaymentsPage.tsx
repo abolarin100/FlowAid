@@ -3,7 +3,7 @@ import {
   useCampaignPayments,
   useCampaigns,
   useBulkDisbursement,
-  useRecipients,
+  useEligibleRecipients,
 } from "../../hooks";
 import { formatCurrency } from "../../utils/format";
 import { formatDistanceToNow } from "date-fns";
@@ -34,18 +34,22 @@ export const PaymentsPage: React.FC = () => {
     page,
   );
   // Fetch a larger page so the selection modal has enough recipients to choose from
-  const { data: recipientsPage } = useRecipients(0, 100);
+  const { data: recipientsPage, isLoading: recipientsLoading } =
+    useEligibleRecipients(selectedCampaignId);
   const bulkMutation = useBulkDisbursement();
 
+  // const activeRecipients = useMemo(
+  //   () =>
+  //     recipientsPage?.content.filter((r) => r.enrollmentStatus === "ACTIVE") ??
+  //     [],
+  //   [recipientsPage],
+  // );
   const activeRecipients = useMemo(
-    () =>
-      recipientsPage?.content.filter((r) => r.enrollmentStatus === "ACTIVE") ??
-      [],
+    () => recipientsPage?.content ?? [],
     [recipientsPage],
   );
 
   const openBulkModal = () => {
-    // Default: pre-select all active recipients, user can deselect
     setSelectedRecipientIds(new Set(activeRecipients.map((r) => r.id)));
     setErrorMessage(null);
     setShowBulkModal(true);
@@ -247,7 +251,7 @@ export const PaymentsPage: React.FC = () => {
                   }
                   onChange={toggleAll}
                 />
-                Select all ({activeRecipients.length} active)
+                Select all ({activeRecipients.length} eligible)
               </label>
               <span className="selection-count">
                 {selectedRecipientIds.size} selected

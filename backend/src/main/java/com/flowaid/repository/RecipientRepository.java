@@ -23,21 +23,65 @@ public interface RecipientRepository extends JpaRepository<Recipient, UUID> {
     Page<Recipient> findByCountryCode(String countryCode, Pageable pageable);
 
     @Query("""
-        SELECT r FROM Recipient r
-        WHERE r.countryCode = :countryCode
-        AND r.enrollmentStatus = 'ACTIVE'
-        AND r.id NOT IN (
-            SELECT p.recipient.id FROM Payment p
-            WHERE p.campaign.id = :campaignId
-        )
-        """)
+            SELECT r FROM Recipient r
+            WHERE r.countryCode = :countryCode
+            AND r.enrollmentStatus = 'ACTIVE'
+            AND r.id NOT IN (
+                SELECT p.recipient.id FROM Payment p
+                WHERE p.campaign.id = :campaignId
+            )
+            """)
     List<Recipient> findEligibleForCampaign(
-        @Param("campaignId") UUID campaignId,
-        @Param("countryCode") String countryCode
-    );
+            @Param("campaignId") UUID campaignId,
+            @Param("countryCode") String countryCode);
 
     @Query("SELECT COUNT(r) FROM Recipient r WHERE r.enrollmentStatus = :status")
     long countByStatus(@Param("status") EnrollmentStatus status);
 
     boolean existsByPhoneNumber(String phoneNumber);
+
+    @Query("""
+            SELECT r FROM Recipient r
+            WHERE r.countryCode = :countryCode
+            AND r.region = :region
+            AND r.enrollmentStatus = 'ACTIVE'
+            AND r.id NOT IN (
+                SELECT p.recipient.id FROM Payment p
+                WHERE p.campaign.id = :campaignId
+            )
+            """)
+    List<Recipient> findEligibleForCampaignInRegion(
+            @Param("campaignId") UUID campaignId,
+            @Param("countryCode") String countryCode,
+            @Param("region") String region);
+
+    @Query("""
+            SELECT r FROM Recipient r
+            WHERE r.countryCode = :countryCode
+            AND r.enrollmentStatus = 'ACTIVE'
+            AND r.id NOT IN (
+                SELECT p.recipient.id FROM Payment p
+                WHERE p.campaign.id = :campaignId
+            )
+            """)
+    Page<Recipient> findEligibleForCampaignPaged(
+            @Param("campaignId") UUID campaignId,
+            @Param("countryCode") String countryCode,
+            Pageable pageable);
+
+    @Query("""
+            SELECT r FROM Recipient r
+            WHERE r.countryCode = :countryCode
+            AND r.region = :region
+            AND r.enrollmentStatus = 'ACTIVE'
+            AND r.id NOT IN (
+                SELECT p.recipient.id FROM Payment p
+                WHERE p.campaign.id = :campaignId
+            )
+            """)
+    Page<Recipient> findEligibleForCampaignInRegionPaged(
+            @Param("campaignId") UUID campaignId,
+            @Param("countryCode") String countryCode,
+            @Param("region") String region,
+            Pageable pageable);
 }

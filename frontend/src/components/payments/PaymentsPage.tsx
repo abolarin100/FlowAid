@@ -34,8 +34,7 @@ export const PaymentsPage: React.FC = () => {
     page,
   );
   // Fetch a larger page so the selection modal has enough recipients to choose from
-  const { data: recipientsPage, isLoading: recipientsLoading } =
-    useEligibleRecipients(selectedCampaignId);
+  const { data: recipientsPage } = useEligibleRecipients(selectedCampaignId);
   const bulkMutation = useBulkDisbursement();
 
   // const activeRecipients = useMemo(

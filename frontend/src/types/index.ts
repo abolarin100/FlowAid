@@ -47,6 +47,10 @@ export interface Payment {
   status: PaymentStatus;
   externalTransferId?: string;
   failureReason?: string;
+  idempotencyKey?: string;
+  retryCount?: number;
+  maxRetries?: number;
+  nextRetryAt?: string;
   initiatedAt?: string;
   completedAt?: string;
   createdAt: string;
@@ -62,6 +66,10 @@ export interface Recipient {
   preferredPaymentMethod?: string;
   enrollmentStatus: EnrollmentStatus;
   vulnerabilityScore?: number;
+  monthlyIncomeUsd?: number;
+  householdSize?: number;
+  eligibilityDecision?: "ELIGIBLE" | "NEEDS_REVIEW" | "INELIGIBLE";
+  eligibilityReason?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -79,7 +87,45 @@ export interface Campaign {
   transferAmountUsd: number;
   startDate?: string;
   endDate?: string;
+  triggeredAt?: string;
+  slaTargetHours?: number;
   createdAt: string;
+}
+
+export interface CampaignProgress {
+  campaignId: string;
+  campaignName: string;
+  totalRecipients: number;
+  completedCount: number;
+  pendingOrProcessingCount: number;
+  retryScheduledCount: number;
+  deadLetterCount: number;
+  percentComplete: number;
+  triggeredAt?: string;
+  slaTargetHours?: number;
+  slaHoursElapsed?: number;
+  slaHoursRemaining?: number;
+  slaBreached: boolean;
+}
+
+export interface Donation {
+  id: string;
+  donorId: string;
+  campaignId?: string;
+  campaignName?: string;
+  amountUsd: number;
+  currency: string;
+  status: "PENDING" | "SUCCEEDED" | "FAILED" | "REFUNDED";
+  isRecurring?: boolean;
+  createdAt: string;
+}
+
+export interface DonationImpact {
+  donorId: string;
+  totalDonatedUsd: number;
+  donationCount: number;
+  estimatedRecipientsFunded: number;
+  note: string;
 }
 
 export interface Donor {
@@ -118,6 +164,7 @@ export interface CreatePaymentRequest {
   campaignId: string;
   amount: number;
   currency: string;
+  idempotencyKey?: string;
 }
 
 export interface BulkDisbursementRequest {

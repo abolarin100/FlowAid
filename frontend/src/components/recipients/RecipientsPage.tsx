@@ -3,6 +3,7 @@ import { useRecipients } from "../../hooks";
 import { recipientsApi } from "../../api";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "../../hooks";
+import { useOfflineRecipientSync } from "../../hooks/useOfflineRecipientSync";
 import type { EnrollmentStatus } from "../../types";
 import clsx from "clsx";
 
@@ -14,6 +15,12 @@ const STATUS_STYLES: Record<EnrollmentStatus, string> = {
   GRADUATED: "badge badge--gray",
 };
 
+const ELIGIBILITY_STYLES: Record<string, string> = {
+  ELIGIBLE: "badge badge--green",
+  NEEDS_REVIEW: "badge badge--yellow",
+  INELIGIBLE: "badge badge--red",
+};
+
 const EMPTY_FORM = {
   firstName: "",
   lastName: "",
@@ -21,7 +28,8 @@ const EMPTY_FORM = {
   countryCode: "",
   region: "",
   preferredPaymentMethod: "",
-  vulnerabilityScore: "",
+  monthlyIncomeUsd: "",
+  householdSize: "",
 };
 
 export const RecipientsPage: React.FC = () => {
@@ -32,36 +40,73 @@ export const RecipientsPage: React.FC = () => {
   const [form, setForm] = useState(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [queuedNotice, setQueuedNotice] = useState("");
+
+  const refresh = () => qc.invalidateQueries({ queryKey: queryKeys.recipients(0) });
+
+  // Offline-first: syncs any locally-queued enrollments automatically once
+  // connectivity returns, and exposes the current online/pending state.
+  const { isOnline, pending, syncing, sync, queueForLater } =
+    useOfflineRecipientSync(refresh);
+
+  const buildPayload = () => ({
+    firstName: form.firstName,
+    lastName: form.lastName,
+    phoneNumber: form.phoneNumber,
+    countryCode: form.countryCode.toUpperCase(),
+    region: form.region || undefined,
+    preferredPaymentMethod: form.preferredPaymentMethod || undefined,
+    monthlyIncomeUsd: form.monthlyIncomeUsd
+      ? Number(form.monthlyIncomeUsd)
+      : undefined,
+    householdSize: form.householdSize ? Number(form.householdSize) : undefined,
+  });
 
   const handleSubmit = async () => {
     setError("");
+    setQueuedNotice("");
+
+    // Low-connectivity constraint: if the browser is already offline, don't
+    // even attempt the request — queue it straight away.
+    if (!isOnline) {
+      queueForLater(buildPayload());
+      setQueuedNotice(
+        "You're offline — this enrollment has been saved on this device and will sync automatically once you're back online.",
+      );
+      setForm(EMPTY_FORM);
+      setShowForm(false);
+      return;
+    }
+
     setSubmitting(true);
     try {
-      await recipientsApi.create({
-        firstName: form.firstName,
-        lastName: form.lastName,
-        phoneNumber: form.phoneNumber,
-        countryCode: form.countryCode.toUpperCase(),
-        region: form.region || undefined,
-        preferredPaymentMethod: form.preferredPaymentMethod || undefined,
-        vulnerabilityScore: form.vulnerabilityScore
-          ? Number(form.vulnerabilityScore)
-          : undefined,
-        enrollmentStatus: "PENDING_VERIFICATION",
-      } as any);
-      qc.invalidateQueries({ queryKey: queryKeys.recipients(0) });
+      await recipientsApi.create(buildPayload());
+      refresh();
       setForm(EMPTY_FORM);
       setShowForm(false);
     } catch (e: any) {
-      setError(e.response?.data?.detail || "Failed to enroll recipient");
+      // Covers the case where isOnline is stale (e.g. flaky mobile network
+      // that hasn't fired the 'offline' event yet) — a network-level failure
+      // gets queued for retry instead of losing the caseworker's data entry.
+      if (!e.response) {
+        queueForLater(buildPayload());
+        setQueuedNotice(
+          "Couldn't reach the server — this enrollment has been saved on this device and will retry automatically.",
+        );
+        setForm(EMPTY_FORM);
+        setShowForm(false);
+      } else {
+        setError(e.response?.data?.detail || "Failed to enroll recipient");
+      }
     } finally {
       setSubmitting(false);
     }
   };
+
   const handleActivate = async (id: string) => {
     try {
       await recipientsApi.updateStatus(id, "ACTIVE");
-      qc.invalidateQueries({ queryKey: queryKeys.recipients(0) });
+      refresh();
     } catch (e: any) {
       alert(e.response?.data?.detail || "Failed to activate recipient");
     }
@@ -81,11 +126,47 @@ export const RecipientsPage: React.FC = () => {
         </button>
       </header>
 
+      {/* Connectivity / offline-queue status bar */}
+      <div
+        className="offline-status-bar"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "10px",
+          padding: "8px 12px",
+          marginBottom: "12px",
+          borderRadius: "8px",
+          fontSize: "13px",
+          background: isOnline ? "var(--color-green-bg, #103a1f)" : "var(--color-yellow-bg, #3a2f10)",
+        }}
+      >
+        <span>{isOnline ? "🟢 Online" : "🟡 Offline — enrollments will queue on this device"}</span>
+        {pending.length > 0 && (
+          <>
+            <span>· {pending.length} enrollment{pending.length === 1 ? "" : "s"} pending sync</span>
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={sync}
+              disabled={syncing || !isOnline}
+            >
+              {syncing ? "Syncing…" : "Sync now"}
+            </button>
+          </>
+        )}
+      </div>
+
+      {queuedNotice && <p className="form-success" style={{ marginBottom: 12 }}>{queuedNotice}</p>}
+
       {showForm && (
         <div className="modal-overlay">
           <div className="modal">
             <h2 className="modal-title">Enroll Recipient</h2>
             {error && <p className="form-error">{error}</p>}
+            {!isOnline && (
+              <p className="form-hint" style={{ marginBottom: 8 }}>
+                You're offline — this will be saved locally and synced automatically.
+              </p>
+            )}
             <div className="form-grid">
               <label className="form-label">
                 First Name *
@@ -162,22 +243,35 @@ export const RecipientsPage: React.FC = () => {
                 </select>
               </label>
               <label className="form-label">
-                Vulnerability Score (0-100)
+                Monthly Income (USD)
                 <input
                   className="form-input"
                   type="number"
                   min={0}
-                  max={100}
-                  value={form.vulnerabilityScore}
+                  value={form.monthlyIncomeUsd}
                   onChange={(e) =>
-                    setForm((f) => ({
-                      ...f,
-                      vulnerabilityScore: e.target.value,
-                    }))
+                    setForm((f) => ({ ...f, monthlyIncomeUsd: e.target.value }))
+                  }
+                />
+              </label>
+              <label className="form-label">
+                Household Size
+                <input
+                  className="form-input"
+                  type="number"
+                  min={1}
+                  max={30}
+                  value={form.householdSize}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, householdSize: e.target.value }))
                   }
                 />
               </label>
             </div>
+            <p className="form-hint">
+              Vulnerability score and eligibility are computed automatically
+              from income, region, and household size — no manual score entry.
+            </p>
             <div className="modal-actions">
               <button
                 className="btn btn-ghost"
@@ -196,7 +290,11 @@ export const RecipientsPage: React.FC = () => {
                   !form.countryCode
                 }
               >
-                {submitting ? "Enrolling..." : "Enroll Recipient"}
+                {submitting
+                  ? "Enrolling..."
+                  : isOnline
+                    ? "Enroll Recipient"
+                    : "Save for later (offline)"}
               </button>
             </div>
           </div>
@@ -220,6 +318,7 @@ export const RecipientsPage: React.FC = () => {
                 <th>Region</th>
                 <th>Status</th>
                 <th>Vulnerability Score</th>
+                <th>Eligibility</th>
                 <th>Payment Method</th> <th>Actions</th>
               </tr>
             </thead>
@@ -256,6 +355,15 @@ export const RecipientsPage: React.FC = () => {
                         />
                         <span>{r.vulnerabilityScore}</span>
                       </div>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                  <td title={r.eligibilityReason ?? undefined}>
+                    {r.eligibilityDecision ? (
+                      <span className={clsx(ELIGIBILITY_STYLES[r.eligibilityDecision])}>
+                        {r.eligibilityDecision.replace(/_/g, " ")}
+                      </span>
                     ) : (
                       "—"
                     )}

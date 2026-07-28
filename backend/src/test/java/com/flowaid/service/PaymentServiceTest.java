@@ -36,7 +36,9 @@ class PaymentServiceTest {
     @Mock PaymentRepository paymentRepository;
     @Mock RecipientRepository recipientRepository;
     @Mock CampaignRepository campaignRepository;
-    @Mock TransferGatewayService transferGatewayService;
+    @Mock PaymentAuditLogger auditLogger;
+    @Mock PaymentProcessingWorker paymentProcessingWorker;
+    @Mock DashboardService dashboardService;
 
     @InjectMocks PaymentService paymentService;
 

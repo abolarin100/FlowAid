@@ -69,4 +69,32 @@ public class PaymentController {
         PageRequest pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
         return ResponseEntity.ok(paymentService.getAllPayments(pageable));
     }
+
+    @GetMapping("/failure-queue")
+    @Operation(summary = "Payments that are FAILED, RETRY_SCHEDULED, or DEAD_LETTER — the ops retry queue")
+    public ResponseEntity<Page<PaymentDto.Response>> getFailureQueue(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "25") int size) {
+        PageRequest pageable = PageRequest.of(page, size, Sort.by("nextRetryAt").ascending());
+        return ResponseEntity.ok(paymentService.getFailureQueue(pageable));
+    }
+
+    @GetMapping("/failure-queue/count")
+    @Operation(summary = "Count of unresolved payments needing attention")
+    public ResponseEntity<Long> getFailureQueueCount() {
+        return ResponseEntity.ok(paymentService.getFailureQueueCount());
+    }
+
+    @PostMapping("/{id}/retry")
+    @Operation(summary = "Manually trigger a retry for a failed/dead-lettered payment")
+    public ResponseEntity<Void> retryPayment(@PathVariable UUID id) {
+        paymentService.retryPayment(id, "manual-ops");
+        return ResponseEntity.accepted().build();
+    }
+
+    @GetMapping("/{id}/audit-trail")
+    @Operation(summary = "Full status-transition history for a payment")
+    public ResponseEntity<List<com.flowaid.model.PaymentAuditLog>> getAuditTrail(@PathVariable UUID id) {
+        return ResponseEntity.ok(paymentService.getAuditTrail(id));
+    }
 }

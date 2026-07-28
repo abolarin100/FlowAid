@@ -23,6 +23,13 @@ public class PaymentDto {
 
         @NotBlank @Size(min = 3, max = 3)
         private String currency;
+
+        // Optional: caller-supplied idempotency key (e.g. a mobile client's
+        // locally-generated UUID for an offline-queued submission). If omitted,
+        // the server derives a deterministic key from recipient+campaign+amount
+        // so accidental duplicate calls still collapse into one payment.
+        @Size(max = 100)
+        private String idempotencyKey;
     }
 
     @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
@@ -37,6 +44,10 @@ public class PaymentDto {
         private PaymentStatus status;
         private String externalTransferId;
         private String failureReason;
+        private String idempotencyKey;
+        private int retryCount;
+        private int maxRetries;
+        private Instant nextRetryAt;
         private Instant initiatedAt;
         private Instant completedAt;
         private Instant createdAt;

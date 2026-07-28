@@ -51,4 +51,14 @@ public class DonorController {
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(donorService.create(request));
     }
+
+    // POST /api/v1/donors/get-or-create — used by the public donation page so
+    // a returning donor giving again with the same email doesn't hit a 409.
+    @PostMapping("/get-or-create")
+    @Operation(summary = "Return the existing donor for this email, or register a new one")
+    public ResponseEntity<DonorDto.Response> getOrCreate(
+        @Valid @RequestBody DonorDto.CreateRequest request
+    ) {
+        return ResponseEntity.ok(donorService.getOrCreate(request));
+    }
 }

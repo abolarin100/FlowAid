@@ -42,6 +42,11 @@ public class CampaignDto {
 
         private LocalDate startDate;
         private LocalDate endDate;
+
+        // Hours allowed to reach full disbursement once triggered (defaults to
+        // 120 = 5 days if omitted). Most meaningful for CRISIS_RESPONSE/EMERGENCY_RELIEF.
+        @Min(1)
+        private Integer slaTargetHours;
     }
 
     @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
@@ -64,7 +69,27 @@ public class CampaignDto {
         private BigDecimal transferAmountUsd;
         private LocalDate startDate;
         private LocalDate endDate;
+        private Instant triggeredAt;
+        private Integer slaTargetHours;
         private Instant createdAt;
         private Instant updatedAt;
+    }
+
+    // Live "X of Y paid" view for the rapid-disbursement dashboard.
+    @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class Progress {
+        private UUID campaignId;
+        private String campaignName;
+        private long totalRecipients;
+        private long completedCount;
+        private long pendingOrProcessingCount;
+        private long retryScheduledCount;
+        private long deadLetterCount;
+        private double percentComplete;
+        private Instant triggeredAt;
+        private Integer slaTargetHours;
+        private Long slaHoursElapsed;
+        private Long slaHoursRemaining;
+        private boolean slaBreached;
     }
 }

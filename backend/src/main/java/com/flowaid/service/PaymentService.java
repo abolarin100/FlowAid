@@ -12,6 +12,7 @@ import com.flowaid.repository.CampaignRepository;
 import com.flowaid.repository.PaymentRepository;
 import com.flowaid.repository.RecipientRepository;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -29,9 +30,14 @@ import java.util.UUID;
 /**
  * Owns payment lifecycle bookkeeping (idempotency, validation, budget
  * checks, bulk disbursement, the ops failure queue). The actual "call the
- * transfer gateway" work is delegated to PaymentProcessingWorker — a
- * separate bean so its @Async annotation genuinely applies (see that
- * class's Javadoc for why calling an @Async method on `this` doesn't work).
+ * transfer gateway" work happens in PaymentProcessingWorker, but this class
+ * never calls it directly — it publishes a PaymentCreatedEvent instead,
+ * consumed by PaymentEventListener only AFTER this transaction commits.
+ * Calling the worker directly (even as a separate @Async bean) races against
+ * this method's own transaction commit: the worker's thread can try to read
+ * the just-saved Payment row before it's actually committed and visible,
+ * throw ResourceNotFoundException, and — since @Async swallows exceptions by
+ * default — silently leave the payment stuck at PENDING forever.
  */
 @Slf4j
 @Service
@@ -41,24 +47,24 @@ public class PaymentService {
     private final RecipientRepository recipientRepository;
     private final CampaignRepository campaignRepository;
     private final PaymentAuditLogger auditLogger;
-    private final PaymentProcessingWorker paymentProcessingWorker;
     private final DashboardService dashboardService;
+    private final ApplicationEventPublisher eventPublisher;
 
-    private static final List<PaymentStatus> UNRESOLVED_STATUSES =
-            List.of(PaymentStatus.FAILED, PaymentStatus.RETRY_SCHEDULED, PaymentStatus.DEAD_LETTER);
+    private static final List<PaymentStatus> UNRESOLVED_STATUSES = List.of(PaymentStatus.FAILED,
+            PaymentStatus.RETRY_SCHEDULED, PaymentStatus.DEAD_LETTER);
 
     public PaymentService(PaymentRepository paymentRepository,
             RecipientRepository recipientRepository,
             CampaignRepository campaignRepository,
             PaymentAuditLogger auditLogger,
-            PaymentProcessingWorker paymentProcessingWorker,
-            @Lazy DashboardService dashboardService) {
+            @Lazy DashboardService dashboardService,
+            ApplicationEventPublisher eventPublisher) {
         this.paymentRepository = paymentRepository;
         this.recipientRepository = recipientRepository;
         this.campaignRepository = campaignRepository;
         this.auditLogger = auditLogger;
-        this.paymentProcessingWorker = paymentProcessingWorker;
         this.dashboardService = dashboardService;
+        this.eventPublisher = eventPublisher;
     }
 
     @Transactional
@@ -104,7 +110,7 @@ public class PaymentService {
         log.info("Payment {} created for recipient {} in campaign {} (idempotencyKey={})",
                 saved.getId(), recipient.getId(), campaign.getId(), idempotencyKey);
 
-        paymentProcessingWorker.processPaymentAsync(saved.getId(), "api");
+        eventPublisher.publishEvent(new PaymentCreatedEvent(saved.getId(), "api"));
         return toResponse(saved);
     }
 
@@ -120,7 +126,7 @@ public class PaymentService {
             payment.setMaxRetries(payment.getMaxRetries() + 1);
             paymentRepository.save(payment);
         }
-        paymentProcessingWorker.processPaymentAsync(paymentId, actor);
+        eventPublisher.publishEvent(new PaymentCreatedEvent(paymentId, actor));
     }
 
     @Transactional(readOnly = true)
@@ -150,7 +156,8 @@ public class PaymentService {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             byte[] hash = digest.digest(raw.getBytes(StandardCharsets.UTF_8));
             StringBuilder sb = new StringBuilder();
-            for (byte b : hash) sb.append(String.format("%02x", b));
+            for (byte b : hash)
+                sb.append(String.format("%02x", b));
             return sb.substring(0, 40);
         } catch (Exception e) {
             return UUID.randomUUID().toString();

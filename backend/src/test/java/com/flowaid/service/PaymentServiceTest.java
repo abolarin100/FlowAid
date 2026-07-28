@@ -33,14 +33,21 @@ import static org.mockito.Mockito.*;
 @DisplayName("PaymentService")
 class PaymentServiceTest {
 
-    @Mock PaymentRepository paymentRepository;
-    @Mock RecipientRepository recipientRepository;
-    @Mock CampaignRepository campaignRepository;
-    @Mock PaymentAuditLogger auditLogger;
-    @Mock PaymentProcessingWorker paymentProcessingWorker;
-    @Mock DashboardService dashboardService;
+    @Mock
+    PaymentRepository paymentRepository;
+    @Mock
+    RecipientRepository recipientRepository;
+    @Mock
+    CampaignRepository campaignRepository;
+    @Mock
+    PaymentAuditLogger auditLogger;
+    @Mock
+    DashboardService dashboardService;
+    @Mock
+    org.springframework.context.ApplicationEventPublisher eventPublisher;
 
-    @InjectMocks PaymentService paymentService;
+    @InjectMocks
+    PaymentService paymentService;
 
     private Recipient activeRecipient;
     private Campaign activeCampaign;
@@ -49,30 +56,30 @@ class PaymentServiceTest {
     @BeforeEach
     void setUp() {
         activeRecipient = Recipient.builder()
-            .id(UUID.randomUUID())
-            .firstName("Amara").lastName("Diallo")
-            .phoneNumber("+2348012345678")
-            .countryCode("NG")
-            .enrollmentStatus(EnrollmentStatus.ACTIVE)
-            .build();
+                .id(UUID.randomUUID())
+                .firstName("Amara").lastName("Diallo")
+                .phoneNumber("+2348012345678")
+                .countryCode("NG")
+                .enrollmentStatus(EnrollmentStatus.ACTIVE)
+                .build();
 
         activeCampaign = Campaign.builder()
-            .id(UUID.randomUUID())
-            .name("Nigeria Emergency Relief 2024")
-            .type(CampaignType.EMERGENCY_RELIEF)
-            .status(CampaignStatus.ACTIVE)
-            .budgetUsd(new BigDecimal("100000.00"))
-            .disbursedUsd(new BigDecimal("10000.00"))
-            .transferAmountUsd(new BigDecimal("500.00"))
-            .targetCountry("NG")
-            .build();
+                .id(UUID.randomUUID())
+                .name("Nigeria Emergency Relief 2024")
+                .type(CampaignType.EMERGENCY_RELIEF)
+                .status(CampaignStatus.ACTIVE)
+                .budgetUsd(new BigDecimal("100000.00"))
+                .disbursedUsd(new BigDecimal("10000.00"))
+                .transferAmountUsd(new BigDecimal("500.00"))
+                .targetCountry("NG")
+                .build();
 
         validRequest = PaymentDto.CreateRequest.builder()
-            .recipientId(activeRecipient.getId())
-            .campaignId(activeCampaign.getId())
-            .amount(new BigDecimal("500.00"))
-            .currency("USD")
-            .build();
+                .recipientId(activeRecipient.getId())
+                .campaignId(activeCampaign.getId())
+                .amount(new BigDecimal("500.00"))
+                .currency("USD")
+                .build();
     }
 
     @Nested
@@ -83,11 +90,11 @@ class PaymentServiceTest {
         @DisplayName("creates payment successfully for eligible recipient")
         void successfulPayment() {
             when(recipientRepository.findById(activeRecipient.getId()))
-                .thenReturn(Optional.of(activeRecipient));
+                    .thenReturn(Optional.of(activeRecipient));
             when(campaignRepository.findById(activeCampaign.getId()))
-                .thenReturn(Optional.of(activeCampaign));
+                    .thenReturn(Optional.of(activeCampaign));
             when(paymentRepository.save(any(Payment.class)))
-                .thenAnswer(inv -> inv.getArgument(0));
+                    .thenAnswer(inv -> inv.getArgument(0));
 
             PaymentDto.Response response = paymentService.initiatePayment(validRequest);
 
@@ -103,8 +110,8 @@ class PaymentServiceTest {
             when(recipientRepository.findById(any())).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> paymentService.initiatePayment(validRequest))
-                .isInstanceOf(ResourceNotFoundException.class)
-                .hasMessageContaining("Recipient");
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessageContaining("Recipient");
         }
 
         @Test
@@ -115,8 +122,8 @@ class PaymentServiceTest {
             when(campaignRepository.findById(any())).thenReturn(Optional.of(activeCampaign));
 
             assertThatThrownBy(() -> paymentService.initiatePayment(validRequest))
-                .isInstanceOf(PaymentProcessingException.class)
-                .hasMessageContaining("ACTIVE");
+                    .isInstanceOf(PaymentProcessingException.class)
+                    .hasMessageContaining("ACTIVE");
         }
 
         @Test
@@ -127,8 +134,8 @@ class PaymentServiceTest {
             when(campaignRepository.findById(any())).thenReturn(Optional.of(activeCampaign));
 
             assertThatThrownBy(() -> paymentService.initiatePayment(validRequest))
-                .isInstanceOf(PaymentProcessingException.class)
-                .hasMessageContaining("budget");
+                    .isInstanceOf(PaymentProcessingException.class)
+                    .hasMessageContaining("budget");
         }
 
         @Test
@@ -139,8 +146,8 @@ class PaymentServiceTest {
             when(campaignRepository.findById(any())).thenReturn(Optional.of(activeCampaign));
 
             assertThatThrownBy(() -> paymentService.initiatePayment(validRequest))
-                .isInstanceOf(PaymentProcessingException.class)
-                .hasMessageContaining("ACTIVE");
+                    .isInstanceOf(PaymentProcessingException.class)
+                    .hasMessageContaining("ACTIVE");
         }
     }
 }

@@ -34,8 +34,13 @@ public class RecipientDto {
         @Size(max = 50)
         private String preferredPaymentMethod;
 
-        @Min(0) @Max(100)
-        private Integer vulnerabilityScore;
+        // Inputs to the eligibility engine. vulnerabilityScore is no longer
+        // accepted from the client — it's computed server-side from these.
+        @jakarta.validation.constraints.DecimalMin(value = "0.0", message = "Income cannot be negative")
+        private java.math.BigDecimal monthlyIncomeUsd;
+
+        @Min(1) @Max(30)
+        private Integer householdSize;
     }
 
     @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
@@ -55,6 +60,10 @@ public class RecipientDto {
         private String preferredPaymentMethod;
         private EnrollmentStatus enrollmentStatus;
         private Integer vulnerabilityScore;
+        private java.math.BigDecimal monthlyIncomeUsd;
+        private Integer householdSize;
+        private com.flowaid.model.Recipient.EligibilityDecision eligibilityDecision;
+        private String eligibilityReason;
         private Instant createdAt;
         private Instant updatedAt;
     }

@@ -41,8 +41,24 @@ public class Recipient {
     @Column(name = "enrollment_status", nullable = false, length = 20)
     private EnrollmentStatus enrollmentStatus;
 
+    // vulnerabilityScore is now COMPUTED by EligibilityEngine (income + zone +
+    // household size), not a manually-entered number. Kept as a stored column
+    // so it's queryable/sortable without recomputing on every read.
     @Column(name = "vulnerability_score")
     private Integer vulnerabilityScore;
+
+    @Column(name = "monthly_income_usd", precision = 10, scale = 2)
+    private java.math.BigDecimal monthlyIncomeUsd;
+
+    @Column(name = "household_size")
+    private Integer householdSize;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "eligibility_decision", length = 20)
+    private EligibilityDecision eligibilityDecision;
+
+    @Column(name = "eligibility_reason", columnDefinition = "TEXT")
+    private String eligibilityReason;
 
     @OneToMany(mappedBy = "recipient", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<Payment> payments;
@@ -67,5 +83,9 @@ public class Recipient {
 
     public enum EnrollmentStatus {
         PENDING_VERIFICATION, VERIFIED, ACTIVE, SUSPENDED, GRADUATED
+    }
+
+    public enum EligibilityDecision {
+        ELIGIBLE, NEEDS_REVIEW, INELIGIBLE
     }
 }

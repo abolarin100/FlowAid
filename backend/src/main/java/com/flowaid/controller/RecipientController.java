@@ -59,6 +59,12 @@ public class RecipientController {
         return ResponseEntity.ok(recipientService.updateStatus(id, request.getStatus()));
     }
 
+    @PostMapping("/{id}/reevaluate-eligibility")
+    @Operation(summary = "Recompute the rules-based eligibility score for a recipient (e.g. after updated income/household data)")
+    public ResponseEntity<RecipientDto.Response> reevaluateEligibility(@PathVariable UUID id) {
+        return ResponseEntity.ok(recipientService.reevaluateEligibility(id));
+    }
+
     @GetMapping("/eligible")
     @Operation(summary = "List ACTIVE recipients eligible for a campaign (geo-filtered, not yet paid)")
     public ResponseEntity<Page<RecipientDto.Response>> listEligible(

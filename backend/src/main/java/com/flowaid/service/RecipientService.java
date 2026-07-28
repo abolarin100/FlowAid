@@ -23,14 +23,17 @@ public class RecipientService {
 
     private final RecipientRepository recipientRepository;
     private final CampaignRepository campaignRepository;
+    private final EligibilityEngine eligibilityEngine;
     private final DashboardService dashboardService;
 
     @Autowired
     public RecipientService(RecipientRepository recipientRepository,
             CampaignRepository campaignRepository,
+            EligibilityEngine eligibilityEngine,
             @Lazy DashboardService dashboardService) {
         this.recipientRepository = recipientRepository;
         this.campaignRepository = campaignRepository;
+        this.eligibilityEngine = eligibilityEngine;
         this.dashboardService = dashboardService;
     }
 
@@ -59,12 +62,43 @@ public class RecipientService {
                 .countryCode(request.getCountryCode())
                 .region(request.getRegion())
                 .preferredPaymentMethod(request.getPreferredPaymentMethod())
-                .vulnerabilityScore(request.getVulnerabilityScore())
+                .monthlyIncomeUsd(request.getMonthlyIncomeUsd())
+                .householdSize(request.getHouseholdSize())
                 .enrollmentStatus(EnrollmentStatus.PENDING_VERIFICATION)
                 .build();
 
+        // Run the rules engine at enrollment time — this is what determines
+        // whether the recipient can progress toward ACTIVE (payable) status,
+        // rather than a caseworker typing in an arbitrary vulnerability number.
+        EligibilityEngine.EligibilityResult result = eligibilityEngine.evaluate(recipient);
+        recipient.setVulnerabilityScore(result.score());
+        recipient.setEligibilityDecision(result.decision());
+        recipient.setEligibilityReason(result.reason());
+        if (result.decision() == Recipient.EligibilityDecision.ELIGIBLE) {
+            recipient.setEnrollmentStatus(EnrollmentStatus.VERIFIED);
+        }
+
         Recipient saved = recipientRepository.save(recipient);
-        log.info("Enrolled recipient {} ({})", saved.getId(), saved.getPhoneNumber());
+        log.info("Enrolled recipient {} ({}) — eligibility={} score={}",
+                saved.getId(), saved.getPhoneNumber(), result.decision(), result.score());
+        dashboardService.evictCache();
+        return toResponse(saved);
+    }
+
+    /**
+     * Recomputes eligibility for an existing recipient (e.g. after income or
+     * household data is updated during a follow-up visit) without needing to
+     * re-enroll them from scratch.
+     */
+    @Transactional
+    public RecipientDto.Response reevaluateEligibility(UUID id) {
+        Recipient recipient = recipientRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Recipient", id));
+        EligibilityEngine.EligibilityResult result = eligibilityEngine.evaluate(recipient);
+        recipient.setVulnerabilityScore(result.score());
+        recipient.setEligibilityDecision(result.decision());
+        recipient.setEligibilityReason(result.reason());
+        Recipient saved = recipientRepository.save(recipient);
         dashboardService.evictCache();
         return toResponse(saved);
     }
@@ -77,7 +111,7 @@ public class RecipientService {
         EnrollmentStatus old = recipient.getEnrollmentStatus();
         recipient.setEnrollmentStatus(newStatus);
         Recipient saved = recipientRepository.save(recipient);
-        log.info("Recipient {} status: {} → {}", id, old, newStatus);
+        log.info("Recipient {} status: {} \u2192 {}", id, old, newStatus);
         dashboardService.evictCache();
         return toResponse(saved);
     }
@@ -116,6 +150,10 @@ public class RecipientService {
                 .preferredPaymentMethod(r.getPreferredPaymentMethod())
                 .enrollmentStatus(r.getEnrollmentStatus())
                 .vulnerabilityScore(r.getVulnerabilityScore())
+                .monthlyIncomeUsd(r.getMonthlyIncomeUsd())
+                .householdSize(r.getHouseholdSize())
+                .eligibilityDecision(r.getEligibilityDecision())
+                .eligibilityReason(r.getEligibilityReason())
                 .createdAt(r.getCreatedAt())
                 .updatedAt(r.getUpdatedAt())
                 .build();

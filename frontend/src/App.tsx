@@ -11,6 +11,7 @@ import { DashboardPage } from "./components/dashboard/DashboardPage";
 import { PaymentsPage } from "./components/payments/PaymentsPage";
 import { RecipientsPage } from "./components/recipients/RecipientsPage";
 import { CampaignsPage } from "./components/campaigns/CampaignsPage";
+import { CampaignPublicPage } from "./components/campaigns/CampaignPublicPage";
 import { DonorsPage } from "./components/donors/DonorsPage";
 import "./App.css";
 
@@ -124,6 +125,8 @@ function App() {
             <Route path="/payments" element={<PaymentsPage />} />
             <Route path="/recipients" element={<RecipientsPage />} />
             <Route path="/campaigns" element={<CampaignsPage />} />
+            <Route path="/campaigns/:id" element={<CampaignPublicPage />} />
+            <Route path="/campaigns/:id/donate/success" element={<CampaignPublicPage />} />
             <Route path="/donors" element={<DonorsPage />} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useCampaigns } from '../../hooks';
 import type { CampaignStatus, CampaignType } from '../../types';
 import { campaignsApi } from '../../api';
@@ -177,6 +178,9 @@ export const CampaignsPage: React.FC = () => {
                         Pause
                       </button>
                     )}
+                    <Link className="btn btn-ghost btn-sm" to={`/campaigns/${c.id}`}>
+                      View public page
+                    </Link>
                   </td>
                 </tr>
               ))}

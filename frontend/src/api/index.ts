@@ -3,7 +3,10 @@ import type {
   Payment,
   Recipient,
   Campaign,
+  CampaignProgress,
   Donor,
+  Donation,
+  DonationImpact,
   DashboardStats,
   Page,
   CreatePaymentRequest,
@@ -65,6 +68,14 @@ export const paymentsApi = {
     apiClient
       .get<Page<Payment>>("/payments", { params: { page, size } })
       .then((r) => r.data),
+
+  getFailureQueue: (page = 0, size = 25) =>
+    apiClient
+      .get<Page<Payment>>("/payments/failure-queue", { params: { page, size } })
+      .then((r) => r.data),
+
+  retry: (id: string) =>
+    apiClient.post(`/payments/${id}/retry`).then((r) => r.data),
 };
 
 export const recipientsApi = {
@@ -90,7 +101,8 @@ export const recipientsApi = {
     countryCode: string;
     region?: string;
     preferredPaymentMethod?: string;
-    vulnerabilityScore?: number;
+    monthlyIncomeUsd?: number;
+    householdSize?: number;
   }) => apiClient.post<Recipient>("/recipients", body).then((r) => r.data),
 
   updateStatus: (id: string, status: string) =>
@@ -105,6 +117,11 @@ export const campaignsApi = {
   getById: (id: string) =>
     apiClient.get<Campaign>(`/campaigns/${id}`).then((r) => r.data),
 
+  getProgress: (id: string) =>
+    apiClient
+      .get<CampaignProgress>(`/campaigns/${id}/progress`)
+      .then((r) => r.data),
+
   create: (body: {
     name: string;
     description?: string;
@@ -115,12 +132,42 @@ export const campaignsApi = {
     transferAmountUsd: number;
     startDate?: string;
     endDate?: string;
+    slaTargetHours?: number;
   }) => apiClient.post<Campaign>("/campaigns", body).then((r) => r.data),
 
   // FIX: was calling create() instead of patching status
   updateStatus: (id: string, status: string) =>
     apiClient
       .patch<Campaign>(`/campaigns/${id}/status`, { status })
+      .then((r) => r.data),
+};
+
+export const donationsApi = {
+  createCheckoutSession: (body: {
+    donorId: string;
+    campaignId?: string;
+    amountUsd: number;
+    isRecurring?: boolean;
+    successUrl: string;
+    cancelUrl: string;
+  }) =>
+    apiClient
+      .post<{ donationId: string; checkoutUrl: string; stripeSessionId: string }>(
+        "/donations/checkout-session",
+        body,
+      )
+      .then((r) => r.data),
+
+  getHistory: (donorId: string, page = 0, size = 25) =>
+    apiClient
+      .get<Page<Donation>>(`/donors/${donorId}/donations`, {
+        params: { page, size },
+      })
+      .then((r) => r.data),
+
+  getImpact: (donorId: string) =>
+    apiClient
+      .get<DonationImpact>(`/donors/${donorId}/impact`)
       .then((r) => r.data),
 };
 
@@ -141,4 +188,12 @@ export const donorsApi = {
     organizationName?: string;
     isRecurring?: boolean;
   }) => apiClient.post<Donor>("/donors", body).then((r) => r.data),
+
+  getOrCreate: (body: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    organizationName?: string;
+    isRecurring?: boolean;
+  }) => apiClient.post<Donor>("/donors/get-or-create", body).then((r) => r.data),
 };

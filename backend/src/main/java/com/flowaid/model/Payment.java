@@ -49,6 +49,29 @@ public class Payment {
     @Column(name = "completed_at")
     private Instant completedAt;
 
+    // Client- (or bulk-job-) supplied key used to guarantee a payment is only
+    // ever created/processed once, even if the initiate call is retried by a
+    // caller, a flaky network, or a duplicate bulk-disbursement request.
+    @Column(name = "idempotency_key", unique = true, length = 100)
+    private String idempotencyKey;
+
+    // --- Retry / backoff bookkeeping ---
+    @Column(name = "retry_count", nullable = false)
+    @Builder.Default
+    private int retryCount = 0;
+
+    @Column(name = "max_retries", nullable = false)
+    @Builder.Default
+    private int maxRetries = 5;
+
+    // When the scheduled retry job is allowed to pick this payment up again.
+    // Set using exponential backoff after each failed attempt.
+    @Column(name = "next_retry_at")
+    private Instant nextRetryAt;
+
+    @Column(name = "last_attempted_at")
+    private Instant lastAttemptedAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -71,6 +94,6 @@ public class Payment {
     }
 
     public enum PaymentStatus {
-        PENDING, PROCESSING, COMPLETED, FAILED, REVERSED
+        PENDING, PROCESSING, COMPLETED, FAILED, RETRY_SCHEDULED, DEAD_LETTER, REVERSED
     }
 }

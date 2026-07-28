@@ -79,4 +79,21 @@ public interface PaymentRepository extends JpaRepository<Payment, UUID> {
 
     @Query("SELECT COALESCE(SUM(p.amount), 0) FROM Payment p WHERE p.status = :status")
     BigDecimal sumAmountByStatus(@Param("status") PaymentStatus status);
+
+    Optional<Payment> findByIdempotencyKey(String idempotencyKey);
+
+    // Retry queue: payments that failed and are due (or overdue) for another attempt.
+    @Query("""
+        SELECT p FROM Payment p
+        WHERE p.status = :status
+        AND p.nextRetryAt <= :now
+        """)
+    List<Payment> findDueForRetry(@Param("status") PaymentStatus status, @Param("now") Instant now);
+
+    // Failure/retry queue view for the admin dashboard: anything not yet resolved.
+    Page<Payment> findByStatusIn(List<PaymentStatus> statuses, Pageable pageable);
+
+    long countByStatusIn(List<PaymentStatus> statuses);
+
+    List<Payment> findByCampaignIdAndStatusIn(UUID campaignId, List<PaymentStatus> statuses);
 }

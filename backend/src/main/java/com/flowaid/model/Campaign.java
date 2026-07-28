@@ -53,6 +53,17 @@ public class Campaign {
     @Column(name = "end_date")
     private LocalDate endDate;
 
+    // --- Rapid-response SLA tracking ---
+    // Set the moment the campaign is first activated. For CRISIS_RESPONSE /
+    // EMERGENCY_RELIEF campaigns this is the clock the "X days, anywhere in
+    // the world" constraint is measured against.
+    @Column(name = "triggered_at")
+    private Instant triggeredAt;
+
+    @Column(name = "sla_target_hours")
+    @Builder.Default
+    private Integer slaTargetHours = 120; // default 5 days
+
     @OneToMany(mappedBy = "campaign", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<Payment> payments;
 

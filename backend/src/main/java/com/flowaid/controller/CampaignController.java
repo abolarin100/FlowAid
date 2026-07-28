@@ -46,6 +46,13 @@ public class CampaignController {
             .body(campaignService.create(request));
     }
 
+    // GET /api/v1/campaigns/{id}/progress
+    @GetMapping("/{id}/progress")
+    @Operation(summary = "Live disbursement progress + SLA countdown ('X of Y paid', time since trigger)")
+    public ResponseEntity<CampaignDto.Progress> getProgress(@PathVariable UUID id) {
+        return ResponseEntity.ok(campaignService.getProgress(id));
+    }
+
     // PATCH /api/v1/campaigns/{id}/status
     @PatchMapping("/{id}/status")
     @Operation(summary = "Update campaign status (e.g. DRAFT → ACTIVE)")

@@ -40,6 +40,13 @@ public class DonorService {
     }
 
     @Transactional
+    public DonorDto.Response getOrCreate(DonorDto.CreateRequest request) {
+        return donorRepository.findByEmail(request.getEmail())
+                .map(this::toResponse)
+                .orElseGet(() -> create(request));
+    }
+
+    @Transactional
     public DonorDto.Response create(DonorDto.CreateRequest request) {
         donorRepository.findByEmail(request.getEmail()).ifPresent(existing -> {
             throw new IllegalArgumentException(
